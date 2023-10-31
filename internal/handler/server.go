@@ -17,11 +17,11 @@ import (
 )
 
 type HttpServer struct {
-	start time.Time
-	httpAppServer core.HttpAppServer
+	start 			time.Time
+	httpAppServer 	core.HttpAppServer
 }
 
-func NewHttpAppServer(	httpAppServer core.HttpAppServer) HttpServer {
+func NewHttpAppServer(httpAppServer core.HttpAppServer) HttpServer {
 	childLogger.Debug().Msg("NewHttpAppServer")
 
 	return HttpServer{	start: time.Now(), 
@@ -35,6 +35,10 @@ func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
 	myRouter := mux.NewRouter().StrictSlash(true)
 
 	myRouter.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
+		json.NewEncoder(rw).Encode(h.httpAppServer)
+	})
+
+	myRouter.HandleFunc("/info", func(rw http.ResponseWriter, req *http.Request) {
 		json.NewEncoder(rw).Encode(h.httpAppServer)
 	})
 

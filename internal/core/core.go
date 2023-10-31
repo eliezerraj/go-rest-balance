@@ -17,16 +17,15 @@ type DatabaseRDS struct {
 }
 
 type HttpAppServer struct {
-	AppInfo 	*AppInfo 		`json:"app_info"`
+	InfoPod 	*InfoPod 		`json:"info_pod"`
 	Server     	Server     		`json:"server"`
 }
 
-type AppInfo struct {
-	Name 				string `json:"name"`
-	Description 		string `json:"description"`
-	Version 			string `json:"version"`
-	OSPID				string `json:"os_pid"`
-	IpAdress			string `json:"ip_adress"`
+type InfoPod struct {
+	PodName			string `json:"pod_name"`
+	ApiVersion		string `json:"version"`
+	OSPID			string `json:"os_pid"`
+	IPAddress		string `json:"ip_address"`
 }
 
 type Server struct {

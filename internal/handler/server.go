@@ -44,27 +44,24 @@ func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
 
 	health := myRouter.Methods(http.MethodGet, http.MethodOptions).Subrouter()
     health.HandleFunc("/health", httpWorkerAdapter.Health)
-	health.Use(MiddleWareHandlerHeader)
 
 	live := myRouter.Methods(http.MethodGet, http.MethodOptions).Subrouter()
     live.HandleFunc("/live", httpWorkerAdapter.Health)
-	live.Use(MiddleWareHandlerHeader)
 
 	header := myRouter.Methods(http.MethodGet, http.MethodOptions).Subrouter()
     header.HandleFunc("/header", httpWorkerAdapter.Header)
-	header.Use(MiddleWareHandlerHeader)
 
 	addBalance := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
     addBalance.HandleFunc("/add", httpWorkerAdapter.Add)
-	addBalance.Use(MiddleWareHandlerHeader)
+	addBalance.Use(httpWorkerAdapter.DecoratorDB)
 
 	sumBalance := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
     sumBalance.HandleFunc("/sum", httpWorkerAdapter.Sum)
-	sumBalance.Use(MiddleWareHandlerHeader)
+	sumBalance.Use(httpWorkerAdapter.DecoratorDB)
 
 	minusBalance := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
     minusBalance.HandleFunc("/minus", httpWorkerAdapter.Minus)
-	minusBalance.Use(MiddleWareHandlerHeader)
+	minusBalance.Use(httpWorkerAdapter.DecoratorDB)
 
 	getBalance := myRouter.Methods(http.MethodGet, http.MethodOptions).Subrouter()
     getBalance.HandleFunc("/get/{id}", httpWorkerAdapter.Get)
@@ -72,7 +69,7 @@ func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
 
 	updateBalance := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
     updateBalance.HandleFunc("/update/{id}", httpWorkerAdapter.Update)
-	updateBalance.Use(MiddleWareHandlerHeader)
+	updateBalance.Use(httpWorkerAdapter.DecoratorDB)
 
 	deleteBalance := myRouter.Methods(http.MethodDelete, http.MethodOptions).Subrouter()
     deleteBalance.HandleFunc("/delete/{id}", httpWorkerAdapter.Delete)

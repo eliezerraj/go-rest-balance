@@ -52,8 +52,6 @@ func init(){
 	server.CtxTimeout = 60
 	//Just for easy test
 
-	httpAppServerConfig.Server = server
-
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		log.Error().Err(err).Msg("Error to get the POD IP address !!!")
@@ -98,13 +96,13 @@ func getEnv() {
 		intVar, _ := strconv.Atoi(os.Getenv("PORT"))
 		server.Port = intVar
 	}
+
 	if os.Getenv("DB_HOST") !=  "" {
 		envDB.Host = os.Getenv("DB_HOST")
 	}
 	if os.Getenv("DB_PORT") !=  "" {
 		envDB.Port = os.Getenv("DB_PORT")
 	}
-
 	if os.Getenv("DB_NAME") !=  "" {	
 		envDB.DatabaseName = os.Getenv("DB_NAME")
 	}
@@ -116,6 +114,9 @@ func getEnv() {
 func main() {
 	log.Debug().Msg("main")
 	log.Debug().Interface("",envDB).Msg("getEnv")
+	log.Debug().Msg("--------")
+	log.Debug().Interface("",server).Msg("server")
+	log.Debug().Msg("--------")
 
 	count := 1
 	var err error
@@ -134,10 +135,10 @@ func main() {
 		}
 		break
 	}
+	
+	httpAppServerConfig.Server = server
 	repoDB = db_postgre.NewWorkerRepository(dataBaseHelper)
-
 	workerService := service.NewWorkerService(&repoDB)
-
 	httpWorkerAdapter := handler.NewHttpWorkerAdapter(workerService)
 
 	httpAppServerConfig.InfoPod = &infoPod

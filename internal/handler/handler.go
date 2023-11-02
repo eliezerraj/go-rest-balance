@@ -25,9 +25,37 @@ func NewHttpWorkerAdapter(workerService *service.WorkerService) *HttpWorkerAdapt
 	}
 }
 
+// Middleware v01
 func MiddleWareHandlerHeader(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		childLogger.Debug().Msg("-------------- MiddleWareHandlerHeader (INICIO) --------------")
+		childLogger.Debug().Msg("-------------- MiddleWareHandlerHeader (INICIO)  --------------")
+	
+		if reqHeadersBytes, err := json.Marshal(r.Header); err != nil {
+			childLogger.Error().Err(err).Msg("Could not Marshal http headers !!!")
+		} else {
+			childLogger.Debug().Str("Headers : ", string(reqHeadersBytes) ).Msg("")
+		}
+
+		childLogger.Debug().Str("Method : ", r.Method ).Msg("")
+		childLogger.Debug().Str("URL : ", r.URL.Path ).Msg("")
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers","Content-Type,access-control-allow-origin, access-control-allow-headers")
+		//log.Println(r.Header.Get("Host"))
+		//log.Println(r.Header.Get("User-Agent"))
+		//log.Println(r.Header.Get("X-Forwarded-For"))
+
+		childLogger.Debug().Msg("-------------- MiddleWareHandlerHeader (FIM) ----------------")
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Middleware v02 - with decoratorDB
+func (h *HttpWorkerAdapter) DecoratorDB(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		childLogger.Debug().Msg("-------------- Decorator - MiddleWareHandlerHeader (INICIO) --------------")
 	
 		if reqHeadersBytes, err := json.Marshal(r.Header); err != nil {
 			childLogger.Error().Err(err).Msg("Could not Marshal http headers !!!")
@@ -42,11 +70,14 @@ func MiddleWareHandlerHeader(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers","Content-Type,access-control-allow-origin, access-control-allow-headers")
 	
-		//log.Println(r.Header.Get("Host"))
-		//log.Println(r.Header.Get("User-Agent"))
-		//log.Println(r.Header.Get("X-Forwarded-For"))
+		// If the user was informed then insert it in the session
+		if string(r.Header.Get("client-id")) != "" {
+			h.workerService.SetSessionVariable(string(r.Header.Get("client-id")))
+		} else {
+			h.workerService.SetSessionVariable("NO_INFORMED")
+		}
 
-		childLogger.Debug().Msg("-------------- MiddleWareHandlerHeader (FIM) ----------------")
+		childLogger.Debug().Msg("-------------- Decorator- MiddleWareHandlerHeader (FIM) ----------------")
 
 		next.ServeHTTP(w, r)
 	})
@@ -82,7 +113,7 @@ func (h *HttpWorkerAdapter) Sum(rw http.ResponseWriter, req *http.Request) {
 	err := json.NewDecoder(req.Body).Decode(&balance)
     if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(rw).Encode(erro.ErrUnmarshal)
+		json.NewEncoder(rw).Encode(erro.ErrUnmarshal.Error())
         return
     }
 	
@@ -104,7 +135,7 @@ func (h *HttpWorkerAdapter) Minus(rw http.ResponseWriter, req *http.Request) {
 	err := json.NewDecoder(req.Body).Decode(&balance)
     if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(rw).Encode(erro.ErrUnmarshal)
+		json.NewEncoder(rw).Encode(erro.ErrUnmarshal.Error())
         return
     }
 	
@@ -126,7 +157,7 @@ func (h *HttpWorkerAdapter) Add(rw http.ResponseWriter, req *http.Request) {
 	err := json.NewDecoder(req.Body).Decode(&balance)
     if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(rw).Encode(erro.ErrUnmarshal)
+		json.NewEncoder(rw).Encode(erro.ErrUnmarshal.Error())
         return
     }
 	
@@ -168,7 +199,7 @@ func (h *HttpWorkerAdapter) Update(rw http.ResponseWriter, req *http.Request) {
 	err := json.NewDecoder(req.Body).Decode(&balance)
     if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(rw).Encode(erro.ErrUnmarshal)
+		json.NewEncoder(rw).Encode(erro.ErrUnmarshal.Error())
         return
     }
 	

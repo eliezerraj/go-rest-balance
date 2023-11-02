@@ -25,6 +25,7 @@ type DatabaseHelperImplementacion struct {
 	timeout		time.Duration
 }
 
+
 func NewDatabaseHelper(databaseRDS core.DatabaseRDS) (DatabaseHelper, error) {
 	childLogger.Debug().Msg("NewDatabaseHelper")
 

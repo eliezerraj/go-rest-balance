@@ -61,7 +61,7 @@ spec:
               path: /health
               port: http
             initialDelaySeconds: 5
-            periodSeconds: 5
+            periodSeconds: 30
             failureThreshold: 3
             successThreshold: 1
             timeoutSeconds: 10
@@ -72,7 +72,7 @@ spec:
               - -c
               - "ps -A | grep go-rest-balance | grep -v grep"
             initialDelaySeconds: 5
-            periodSeconds: 3
+            periodSeconds: 30
             failureThreshold: 3
             successThreshold: 1
             timeoutSeconds: 5

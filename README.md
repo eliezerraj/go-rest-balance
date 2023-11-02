@@ -6,16 +6,16 @@ CRUD a balance data
 
 ## Database
 
-    CREATE TABLE balance (
-        id              serial not null,
-        account_id      varchar(200) NULL,
-        person_id       varchar(200) NULL,
-        currency        varchar(10) NULL,   
-        amount          float8 NULL,
-        create_at       timestamptz NULL,
-        update_at       timestamptz NULL,
-        tenant_id       varchar(200) NULL
-    );
+        CREATE TABLE balance (
+            id              SERIAL PRIMARY KEY,
+            account_id      varchar(200) UNIQUE NULL,
+            person_id       varchar(200) NULL,
+            currency        varchar(10) NULL,   
+            amount          float8 NULL,
+            create_at       timestamptz NULL,
+            update_at       timestamptz NULL,
+            tenant_id       varchar(200) null,
+            user_last_update			varchar(200) NULL);
 
 ## Endpoints
 
@@ -49,6 +49,14 @@ CRUD a balance data
 + DELETE /delete/ACC-001
 
 + POST /sum
+
+        {
+            "account_id": "ACC-003",
+            "amount": 100.00,
+            "tenant_id": "TENANT-001"
+        }
+
++ POST /minus
 
         {
             "account_id": "ACC-003",

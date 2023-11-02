@@ -23,6 +23,17 @@ func NewWorkerService(workerRepository *db_postgre.WorkerRepository) *WorkerServ
 	}
 }
 
+func (s WorkerService) SetSessionVariable(userCredential string) (bool, error){
+	childLogger.Debug().Msg("SetSessionVariable")
+
+	res, err := s.workerRepository.SetSessionVariable(userCredential)
+	if err != nil {
+		return false, err
+	}
+
+	return res, nil
+}
+
 func (s WorkerService) Add(balance core.Balance) (*core.Balance, error){
 	childLogger.Debug().Msg("Add")
 

@@ -15,7 +15,7 @@ CRUD a balance data
             create_at       timestamptz NULL,
             update_at       timestamptz NULL,
             tenant_id       varchar(200) null,
-            user_last_update			varchar(200) NULL);
+            user_last_update	varchar(200) NULL);
 
 ## Endpoints
 

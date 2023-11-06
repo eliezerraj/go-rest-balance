@@ -100,7 +100,7 @@ func (h *HttpWorkerAdapter) Live(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (h *HttpWorkerAdapter) Header(rw http.ResponseWriter, req *http.Request) {
-	log.Printf("/header")
+	childLogger.Debug().Msg("Header")
 	
 	json.NewEncoder(rw).Encode(req.Header)
 	return

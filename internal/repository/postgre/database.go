@@ -16,7 +16,7 @@ import (
 var childLogger = log.With().Str("repository/postgre", "NewDatabaseHelper").Logger()
 
 type DatabaseHelper interface {
-	GetConnection(ctx context.Context) (*sql.DB, error)
+	GetConnection(ctx context.Context) (*sql.DB)
 	CloseConnection()
 }
 
@@ -54,9 +54,9 @@ func NewDatabaseHelper(databaseRDS core.DatabaseRDS) (DatabaseHelper, error) {
 	}, nil
 }
 
-func (d DatabaseHelperImplementacion) GetConnection(ctx context.Context) (*sql.DB, error) {
+func (d DatabaseHelperImplementacion) GetConnection(ctx context.Context) (*sql.DB) {
 	childLogger.Debug().Msg("GetConnection")
-	return d.client, nil
+	return d.client
 }
 
 func (d DatabaseHelperImplementacion) CloseConnection()  {

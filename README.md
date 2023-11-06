@@ -33,9 +33,13 @@ CRUD a balance data
 
 + GET /get/ACC-003
 
+        curl svc01.domain.com/get/ACC-001 | jq
+
 + GET /header
 
 + GET /list/P-002
+
+        curl svc01.domain.com/list/P-003 | jq
 
 + POST /update/ACC-003
 
@@ -63,3 +67,11 @@ CRUD a balance data
             "amount": 100.00,
             "tenant_id": "TENANT-001"
         }
+
+## K8 local
+
+Add in hosts file /etc/hosts the lines below
+
+    127.0.0.1   svc01.domain.com
+
+

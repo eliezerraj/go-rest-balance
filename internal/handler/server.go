@@ -35,10 +35,13 @@ func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
 	myRouter := mux.NewRouter().StrictSlash(true)
 
 	myRouter.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
+		childLogger.Debug().Msg("/")
 		json.NewEncoder(rw).Encode(h.httpAppServer)
 	})
+	myRouter.Use(MiddleWareHandlerHeader)
 
 	myRouter.HandleFunc("/info", func(rw http.ResponseWriter, req *http.Request) {
+		childLogger.Debug().Msg("/info")
 		json.NewEncoder(rw).Encode(h.httpAppServer)
 	})
 
@@ -47,9 +50,11 @@ func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
 
 	live := myRouter.Methods(http.MethodGet, http.MethodOptions).Subrouter()
     live.HandleFunc("/live", httpWorkerAdapter.Health)
+	live.Use(MiddleWareHandlerHeader)
 
 	header := myRouter.Methods(http.MethodGet, http.MethodOptions).Subrouter()
     header.HandleFunc("/header", httpWorkerAdapter.Header)
+	header.Use(MiddleWareHandlerHeader)
 
 	addBalance := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
     addBalance.HandleFunc("/add", httpWorkerAdapter.Add)

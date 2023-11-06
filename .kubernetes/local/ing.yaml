@@ -4,17 +4,20 @@ metadata:
   name: ing-go-rest-balance
   namespace: test-a
   annotations:
-    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
     nginx.ingress.kubernetes.io/rewrite-target: /
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/default-backend: "svc-go-rest-balance"
 spec:
+  ingressClassName: nginx
   rules:
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-           name: svc-go-rest-balance
-           port:
-            number: 8900
+    - host: svc01.domain.com
+      http:
+        paths:
+        - path: /balance
+          pathType: Prefix
+          backend:
+            service:
+              name: svc-go-rest-balance
+              port:
+                number: 8900

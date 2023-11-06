@@ -31,10 +31,7 @@ func (w WorkerRepository) SetSessionVariable(userCredential string) (bool, error
 	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
 	defer cancel()
 
-	client, err := w.databaseHelper.GetConnection(ctx)
-	if err != nil {
-		return false, errors.New(err.Error())
-	}
+	client := w.databaseHelper.GetConnection(ctx)
 	
 	stmt, err := client.Prepare("SET sess.user_credential to '" + userCredential+ "'")
 	if err != nil {
@@ -59,10 +56,7 @@ func (w WorkerRepository) GetSessionVariable() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
 	defer cancel()
 
-	client, err := w.databaseHelper.GetConnection(ctx)
-	if err != nil {
-		return "", errors.New(err.Error())
-	}
+	client := w.databaseHelper.GetConnection(ctx)
 
 	var res_balance string
 	rows, err := client.Query("SELECT current_setting('sess.user_credential')" )
@@ -93,12 +87,9 @@ func (w WorkerRepository) Ping() (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1000)
 	defer cancel()
 
-	client, err := w.databaseHelper.GetConnection(ctx)
-	if err != nil {
-		return false, errors.New(err.Error())
-	}
+	client := w.databaseHelper.GetConnection(ctx)
 
-	err = client.Ping()
+	err := client.Ping()
 	if err != nil {
 		return false, errors.New(err.Error())
 	}
@@ -112,10 +103,7 @@ func (w WorkerRepository) Add(balance core.Balance) (*core.Balance, error){
 	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
 	defer cancel()
 
-	client, err := w.databaseHelper.GetConnection(ctx)
-	if err != nil {
-		return nil, errors.New(err.Error())
-	}
+	client := w.databaseHelper.GetConnection(ctx)
 
 	userLastUpdate, _ := w.GetSessionVariable()
 
@@ -131,6 +119,8 @@ func (w WorkerRepository) Add(balance core.Balance) (*core.Balance, error){
 		childLogger.Error().Err(err).Msg("INSERT statement")
 		return nil, errors.New(err.Error())
 	}
+	defer stmt.Close()
+	
 	_, err = stmt.Exec(	balance.AccountID, 
 						balance.PersonID,
 						balance.Currency,
@@ -152,10 +142,7 @@ func (w WorkerRepository) Get(balance core.Balance) (*core.Balance, error){
 	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
 	defer cancel()
 
-	client, err := w.databaseHelper.GetConnection(ctx)
-	if err != nil {
-		return nil, errors.New(err.Error())
-	}
+	client := w.databaseHelper.GetConnection(ctx)
 
 	result_query := core.Balance{}
 	rows, err := client.Query(`SELECT id, account_id, person_id, currency, amount, create_at, update_at, tenant_id, user_last_update
@@ -195,10 +182,7 @@ func (w WorkerRepository) Update(balance core.Balance) (bool, error){
 	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
 	defer cancel()
 
-	client, err := w.databaseHelper.GetConnection(ctx)
-	if err != nil {
-		return false, errors.New(err.Error())
-	}
+	client := w.databaseHelper.GetConnection(ctx)
 
 	userLastUpdate, _ := w.GetSessionVariable()
 
@@ -214,6 +198,8 @@ func (w WorkerRepository) Update(balance core.Balance) (bool, error){
 		childLogger.Error().Err(err).Msg("UPDATE statement")
 		return false, errors.New(err.Error())
 	}
+	defer stmt.Close()
+
 	result, err := stmt.Exec(	balance.AccountID, 
 						balance.PersonID,
 						balance.Currency,
@@ -239,16 +225,15 @@ func (w WorkerRepository) Delete(balance core.Balance) (bool, error){
 	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
 	defer cancel()
 
-	client, err := w.databaseHelper.GetConnection(ctx)
-	if err != nil {
-		return false, errors.New(err.Error())
-	}
+	client := w.databaseHelper.GetConnection(ctx)
 
 	stmt, err := client.Prepare(`Delete from balance where id = $1 `)
 	if err != nil {
 		childLogger.Error().Err(err).Msg("DELETE statement")
 		return false, errors.New(err.Error())
 	}
+	defer stmt.Close()
+
 	result, err := stmt.Exec(	balance.ID )
 	if err != nil {
 		childLogger.Error().Err(err).Msg("Exec statement")
@@ -267,10 +252,7 @@ func (w WorkerRepository) List(balance core.Balance) (*[]core.Balance, error){
 	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
 	defer cancel()
 
-	client, err := w.databaseHelper.GetConnection(ctx)
-	if err != nil {
-		return nil, errors.New(err.Error())
-	}
+	client:= w.databaseHelper.GetConnection(ctx)
 
 	result_query := core.Balance{}
 	balance_list := []core.Balance{}
@@ -282,6 +264,7 @@ func (w WorkerRepository) List(balance core.Balance) (*[]core.Balance, error){
 		childLogger.Error().Err(err).Msg("SELECT statement")
 		return nil, errors.New(err.Error())
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		err := rows.Scan( 	&result_query.ID, 
@@ -310,11 +293,7 @@ func (w WorkerRepository) Sum(balance core.Balance) (bool, error){
 	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
 	defer cancel()
 
-	client, err := w.databaseHelper.GetConnection(ctx)
-	if err != nil {
-		return false, errors.New(err.Error())
-	}
-
+	client := w.databaseHelper.GetConnection(ctx)
 	stmt, err := client.Prepare(`Update balance
 									set amount = amount + $1, 
 										update_at = $2
@@ -323,6 +302,8 @@ func (w WorkerRepository) Sum(balance core.Balance) (bool, error){
 		childLogger.Error().Err(err).Msg("UPDATE statement")
 		return false, errors.New(err.Error())
 	}
+	defer stmt.Close()
+
 	result, err := stmt.Exec(	balance.Amount,
 								time.Now(),
 								balance.ID,
@@ -344,10 +325,7 @@ func (w WorkerRepository) Minus(balance core.Balance) (bool, error){
 	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
 	defer cancel()
 
-	client, err := w.databaseHelper.GetConnection(ctx)
-	if err != nil {
-		return false, errors.New(err.Error())
-	}
+	client := w.databaseHelper.GetConnection(ctx)
 
 	stmt, err := client.Prepare(`Update balance
 									set amount = amount - $1, 
@@ -357,6 +335,8 @@ func (w WorkerRepository) Minus(balance core.Balance) (bool, error){
 		childLogger.Error().Err(err).Msg("UPDATE statement")
 		return false, errors.New(err.Error())
 	}
+	defer stmt.Close()
+
 	result, err := stmt.Exec(	balance.Amount,
 						time.Now(),
 						balance.ID,

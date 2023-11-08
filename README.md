@@ -1,6 +1,6 @@
 # go-rest-balance
 
-POC for encryption purposes.
+POC for test purposes.
 
 CRUD a balance data
 

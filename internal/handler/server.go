@@ -12,9 +12,22 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/go-rest-balance/internal/service"
 	"github.com/go-rest-balance/internal/core"
+	"github.com/aws/aws-xray-sdk-go/xray"
 
 )
+
+type HttpWorkerAdapter struct {
+	workerService 	*service.WorkerService
+}
+
+func NewHttpWorkerAdapter(workerService *service.WorkerService) *HttpWorkerAdapter {
+	childLogger.Debug().Msg("NewHttpWorkerAdapter")
+	return &HttpWorkerAdapter{
+		workerService: workerService,
+	}
+}
 
 type HttpServer struct {
 	start 			time.Time
@@ -29,9 +42,9 @@ func NewHttpAppServer(httpAppServer core.HttpAppServer) HttpServer {
 					}
 }
 
-func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
+func (h HttpServer) StartHttpAppServer(ctx context.Context, httpWorkerAdapter *HttpWorkerAdapter) {
 	childLogger.Info().Msg("StartHttpAppServer")
-
+		
 	myRouter := mux.NewRouter().StrictSlash(true)
 
 	myRouter.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
@@ -49,40 +62,60 @@ func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
     health.HandleFunc("/health", httpWorkerAdapter.Health)
 
 	live := myRouter.Methods(http.MethodGet, http.MethodOptions).Subrouter()
-    live.HandleFunc("/live", httpWorkerAdapter.Health)
-	live.Use(MiddleWareHandlerHeader)
+    live.HandleFunc("/live", httpWorkerAdapter.Live)
 
 	header := myRouter.Methods(http.MethodGet, http.MethodOptions).Subrouter()
     header.HandleFunc("/header", httpWorkerAdapter.Header)
 	header.Use(MiddleWareHandlerHeader)
 
 	addBalance := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
-    addBalance.HandleFunc("/add", httpWorkerAdapter.Add)
+    //addBalance.HandleFunc("/add", httpWorkerAdapter.Add)
+	addBalance.Handle("/add", 
+						xray.Handler(xray.NewFixedSegmentNamer("go-rest-balance.add"), 
+						http.HandlerFunc(httpWorkerAdapter.Add),
+						),
+	)
 	addBalance.Use(httpWorkerAdapter.DecoratorDB)
 
-	sumBalance := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
-    sumBalance.HandleFunc("/sum", httpWorkerAdapter.Sum)
-	sumBalance.Use(httpWorkerAdapter.DecoratorDB)
-
-	minusBalance := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
-    minusBalance.HandleFunc("/minus", httpWorkerAdapter.Minus)
-	minusBalance.Use(httpWorkerAdapter.DecoratorDB)
-
 	getBalance := myRouter.Methods(http.MethodGet, http.MethodOptions).Subrouter()
-    getBalance.HandleFunc("/get/{id}", httpWorkerAdapter.Get)
+    //getBalance.HandleFunc("/get/{id}", httpWorkerAdapter.Get)
+	getBalance.Handle("/get/{id}", 
+						xray.Handler(xray.NewFixedSegmentNamer("go-rest-balance.getId"), 
+						http.HandlerFunc(httpWorkerAdapter.Get),
+						),
+	)
 	getBalance.Use(MiddleWareHandlerHeader)
 
 	updateBalance := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
-    updateBalance.HandleFunc("/update/{id}", httpWorkerAdapter.Update)
+    //updateBalance.HandleFunc("/update/{id}", httpWorkerAdapter.Update)
+	updateBalance.Handle("/update/{id}", 
+						xray.Handler(xray.NewFixedSegmentNamer("go-rest-balance.updateId"), 
+						http.HandlerFunc(httpWorkerAdapter.Update),
+						),
+	)
 	updateBalance.Use(httpWorkerAdapter.DecoratorDB)
 
+	listBalance := myRouter.Methods(http.MethodGet, http.MethodOptions).Subrouter()
+    //listBalance.HandleFunc("/list/{id}", httpWorkerAdapter.List)
+	listBalance.Handle("/list/{id}", 
+						xray.Handler(xray.NewFixedSegmentNamer("go-rest-balance.listId"), 
+						http.HandlerFunc(httpWorkerAdapter.List),
+						),
+	)
+	listBalance.Use(MiddleWareHandlerHeader)
+
+	sumBalance := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
+    //sumBalance.HandleFunc("/sum", httpWorkerAdapter.Sum)
+	sumBalance.Handle("/sum", 
+						xray.Handler(xray.NewFixedSegmentNamer("go-rest-balance.Sum"), 
+						http.HandlerFunc(httpWorkerAdapter.Sum),
+						),
+	)
+	sumBalance.Use(httpWorkerAdapter.DecoratorDB)
+	
 	deleteBalance := myRouter.Methods(http.MethodDelete, http.MethodOptions).Subrouter()
     deleteBalance.HandleFunc("/delete/{id}", httpWorkerAdapter.Delete)
 	deleteBalance.Use(MiddleWareHandlerHeader)
-
-	listBalance := myRouter.Methods(http.MethodGet, http.MethodOptions).Subrouter()
-    listBalance.HandleFunc("/list/{id}", httpWorkerAdapter.List)
-	listBalance.Use(MiddleWareHandlerHeader)
 
 	srv := http.Server{
 		Addr:         ":" +  strconv.Itoa(h.httpAppServer.Server.Port),      	
@@ -104,9 +137,6 @@ func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 	<-ch
-
-	ctx , cancel := context.WithTimeout(context.Background(), time.Duration(h.httpAppServer.Server.CtxTimeout) * time.Second)
-	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil && err != http.ErrServerClosed {
 		childLogger.Error().Err(err).Msg("WARNING Dirty Shutdown !!!")

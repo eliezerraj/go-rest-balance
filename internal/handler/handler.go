@@ -1,29 +1,17 @@
 package handler
 
-import (
+import (	
 	"net/http"
 	"encoding/json"
 	"github.com/rs/zerolog/log"
 	"github.com/gorilla/mux"
 
-	"github.com/go-rest-balance/internal/service"
 	"github.com/go-rest-balance/internal/core"
 	"github.com/go-rest-balance/internal/erro"
 	
 )
 
 var childLogger = log.With().Str("handler", "handler").Logger()
-
-type HttpWorkerAdapter struct {
-	workerService 	*service.WorkerService
-}
-
-func NewHttpWorkerAdapter(workerService *service.WorkerService) *HttpWorkerAdapter {
-	childLogger.Debug().Msg("NewHttpWorkerAdapter")
-	return &HttpWorkerAdapter{
-		workerService: workerService,
-	}
-}
 
 // Middleware v01
 func MiddleWareHandlerHeader(next http.Handler) http.Handler {
@@ -55,6 +43,7 @@ func MiddleWareHandlerHeader(next http.Handler) http.Handler {
 // Middleware v02 - with decoratorDB
 func (h *HttpWorkerAdapter) DecoratorDB(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
 		childLogger.Debug().Msg("-------------- Decorator - MiddleWareHandlerHeader (INICIO) --------------")
 	
 		if reqHeadersBytes, err := json.Marshal(r.Header); err != nil {
@@ -72,9 +61,9 @@ func (h *HttpWorkerAdapter) DecoratorDB(next http.Handler) http.Handler {
 	
 		// If the user was informed then insert it in the session
 		if string(r.Header.Get("client-id")) != "" {
-			h.workerService.SetSessionVariable(string(r.Header.Get("client-id")))
+			h.workerService.SetSessionVariable(r.Context(),string(r.Header.Get("client-id")))
 		} else {
-			h.workerService.SetSessionVariable("NO_INFORMED")
+			h.workerService.SetSessionVariable(r.Context(),"NO_INFORMED")
 		}
 
 		childLogger.Debug().Msg("-------------- Decorator- MiddleWareHandlerHeader (FIM) ----------------")
@@ -117,7 +106,7 @@ func (h *HttpWorkerAdapter) Sum(rw http.ResponseWriter, req *http.Request) {
         return
     }
 	
-	res, err := h.workerService.Sum(balance)
+	res, err := h.workerService.Sum(req.Context(), balance)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(rw).Encode(err.Error())
@@ -128,29 +117,7 @@ func (h *HttpWorkerAdapter) Sum(rw http.ResponseWriter, req *http.Request) {
 	return
 }
 
-func (h *HttpWorkerAdapter) Minus(rw http.ResponseWriter, req *http.Request) {
-	childLogger.Debug().Msg("Minus")
-
-	balance := core.Balance{}
-	err := json.NewDecoder(req.Body).Decode(&balance)
-    if err != nil {
-		rw.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(rw).Encode(erro.ErrUnmarshal.Error())
-        return
-    }
-	
-	res, err := h.workerService.Minus(balance)
-	if err != nil {
-		rw.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(rw).Encode(err.Error())
-		return
-	}
-
-	json.NewEncoder(rw).Encode(res)
-	return
-}
-
-func (h *HttpWorkerAdapter) Add(rw http.ResponseWriter, req *http.Request) {
+func (h *HttpWorkerAdapter) Add( rw http.ResponseWriter, req *http.Request) {
 	childLogger.Debug().Msg("Add")
 
 	balance := core.Balance{}
@@ -160,8 +127,8 @@ func (h *HttpWorkerAdapter) Add(rw http.ResponseWriter, req *http.Request) {
 		json.NewEncoder(rw).Encode(erro.ErrUnmarshal.Error())
         return
     }
-	
-	res, err := h.workerService.Add(balance)
+
+	res, err := h.workerService.Add(req.Context(), balance)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(rw).Encode(err.Error())
@@ -181,7 +148,7 @@ func (h *HttpWorkerAdapter) Get(rw http.ResponseWriter, req *http.Request) {
 	balance := core.Balance{}
 	balance.AccountID = varID
 	
-	res, err := h.workerService.Get(balance)
+	res, err := h.workerService.Get(req.Context(), balance)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(rw).Encode(err.Error())
@@ -207,7 +174,7 @@ func (h *HttpWorkerAdapter) Update(rw http.ResponseWriter, req *http.Request) {
 	varID := vars["id"]
 	balance.AccountID = varID
 
-	res, err := h.workerService.Update(balance)
+	res, err := h.workerService.Update(req.Context(), balance)
 	if err != nil {
 		if err == erro.ErrNotFound {
 			rw.WriteHeader(404)
@@ -230,7 +197,7 @@ func (h *HttpWorkerAdapter) Delete(rw http.ResponseWriter, req *http.Request) {
 	varID := vars["id"]
 	balance.AccountID = varID
 	
-	res, err := h.workerService.Delete(balance)
+	res, err := h.workerService.Delete(req.Context(), balance)
 	if err != nil {
 		if err == erro.ErrNotFound {
 			rw.WriteHeader(404)
@@ -254,7 +221,7 @@ func (h *HttpWorkerAdapter) List(rw http.ResponseWriter, req *http.Request) {
 	balance := core.Balance{}
 	balance.PersonID = varID
 	
-	res, err := h.workerService.List(balance)
+	res, err := h.workerService.List(req.Context(), balance)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(rw).Encode(err.Error())

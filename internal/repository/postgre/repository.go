@@ -6,14 +6,23 @@ import (
 	"errors"
 
 	_ "github.com/lib/pq"
+	"github.com/rs/zerolog/log"
 
 	"github.com/go-rest-balance/internal/core"
 	"github.com/go-rest-balance/internal/erro"
+	"github.com/aws/aws-xray-sdk-go/xray"
 
 )
 
+var childLogger = log.With().Str("repository", "WorkerRepository").Logger()
+
 type WorkerRepository struct {
 	databaseHelper DatabaseHelper
+}
+
+func xrayTracer(ctx *context.Context, tracerName string){
+	_, root := xray.BeginSubsegment(*ctx, tracerName)
+	defer root.Close(nil)
 }
 
 func NewWorkerRepository(databaseHelper DatabaseHelper) WorkerRepository {
@@ -23,15 +32,12 @@ func NewWorkerRepository(databaseHelper DatabaseHelper) WorkerRepository {
 	}
 }
 
-func (w WorkerRepository) SetSessionVariable(userCredential string) (bool, error) {
+func (w WorkerRepository) SetSessionVariable(ctx context.Context,userCredential string) (bool, error) {
 	childLogger.Debug().Msg("++++++++++++++++++++++++++++++++")
 	childLogger.Debug().Msg("SetSessionVariable")
 	childLogger.Debug().Msg("++++++++++++++++++++++++++++++++")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
-	defer cancel()
-
-	client := w.databaseHelper.GetConnection(ctx)
+	client := w.databaseHelper.GetConnection()
 	
 	stmt, err := client.Prepare("SET sess.user_credential to '" + userCredential+ "'")
 	if err != nil {
@@ -39,7 +45,7 @@ func (w WorkerRepository) SetSessionVariable(userCredential string) (bool, error
 		return false, errors.New(err.Error())
 	}
 
-	_, err = stmt.Exec()
+	_, err = stmt.ExecContext(ctx)
 	if err != nil {
 		childLogger.Error().Err(err).Msg("Exec statement")
 		return false, errors.New(err.Error())
@@ -48,18 +54,15 @@ func (w WorkerRepository) SetSessionVariable(userCredential string) (bool, error
 	return true, nil
 }
 
-func (w WorkerRepository) GetSessionVariable() (string, error) {
+func (w WorkerRepository) GetSessionVariable(ctx context.Context) (string, error) {
 	childLogger.Debug().Msg("++++++++++++++++++++++++++++++++")
 	childLogger.Debug().Msg("GetSessionVariable")
 	childLogger.Debug().Msg("++++++++++++++++++++++++++++++++")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
-	defer cancel()
-
-	client := w.databaseHelper.GetConnection(ctx)
+	client := w.databaseHelper.GetConnection()
 
 	var res_balance string
-	rows, err := client.Query("SELECT current_setting('sess.user_credential')" )
+	rows, err := client.QueryContext(ctx, "SELECT current_setting('sess.user_credential')" )
 	if err != nil {
 		childLogger.Error().Err(err).Msg("Prepare statement")
 		return "", errors.New(err.Error())
@@ -78,18 +81,14 @@ func (w WorkerRepository) GetSessionVariable() (string, error) {
 	return "", erro.ErrNotFound
 }
 
-
-func (w WorkerRepository) Ping() (bool, error) {
+func (w WorkerRepository) Ping(ctx context.Context) (bool, error) {
 	childLogger.Debug().Msg("++++++++++++++++++++++++++++++++")
 	childLogger.Debug().Msg("Ping")
 	childLogger.Debug().Msg("++++++++++++++++++++++++++++++++")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1000)
-	defer cancel()
+	client := w.databaseHelper.GetConnection()
 
-	client := w.databaseHelper.GetConnection(ctx)
-
-	err := client.Ping()
+	err := client.PingContext(ctx)
 	if err != nil {
 		return false, errors.New(err.Error())
 	}
@@ -97,15 +96,15 @@ func (w WorkerRepository) Ping() (bool, error) {
 	return true, nil
 }
 
-func (w WorkerRepository) Add(balance core.Balance) (*core.Balance, error){
+func (w WorkerRepository) Add(ctx context.Context, balance core.Balance) (*core.Balance, error){
 	childLogger.Debug().Msg("Add")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
-	defer cancel()
+	_, root := xray.BeginSubsegment(ctx, "SQL.Add-Balance")
+	defer root.Close(nil)
 
-	client := w.databaseHelper.GetConnection(ctx)
+	client := w.databaseHelper.GetConnection()
 
-	userLastUpdate, _ := w.GetSessionVariable()
+	userLastUpdate, _ := w.GetSessionVariable(ctx)
 
 	stmt, err := client.Prepare(`INSERT INTO balance ( 	account_id, 
 														person_id, 
@@ -121,13 +120,14 @@ func (w WorkerRepository) Add(balance core.Balance) (*core.Balance, error){
 	}
 	defer stmt.Close()
 	
-	_, err = stmt.Exec(	balance.AccountID, 
-						balance.PersonID,
-						balance.Currency,
-						balance.Amount,
-						time.Now(),
-						balance.TenantID,
-						userLastUpdate)
+	_, err = stmt.ExecContext(	ctx,	
+								balance.AccountID, 
+								balance.PersonID,
+								balance.Currency,
+								balance.Amount,
+								time.Now(),
+								balance.TenantID,
+								userLastUpdate)
 	if err != nil {
 		childLogger.Error().Err(err).Msg("Exec statement")
 		return nil, errors.New(err.Error())
@@ -136,18 +136,16 @@ func (w WorkerRepository) Add(balance core.Balance) (*core.Balance, error){
 	return &balance , nil
 }
 
-func (w WorkerRepository) Get(balance core.Balance) (*core.Balance, error){
+func (w WorkerRepository) Get(ctx context.Context, balance core.Balance) (*core.Balance, error){
 	childLogger.Debug().Msg("Get")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
-	defer cancel()
+	_, root := xray.BeginSubsegment(ctx, "SQL.Get-Balance")
+	defer root.Close(nil)
 
-	client := w.databaseHelper.GetConnection(ctx)
+	client := w.databaseHelper.GetConnection()
 
 	result_query := core.Balance{}
-	rows, err := client.Query(`SELECT id, account_id, person_id, currency, amount, create_at, update_at, tenant_id, user_last_update
-								FROM balance 
-								WHERE account_id =$1`, balance.AccountID)
+	rows, err := client.QueryContext(ctx, `SELECT id, account_id, person_id, currency, amount, create_at, update_at, tenant_id, user_last_update FROM balance WHERE account_id =$1`, balance.AccountID)
 	if err != nil {
 		childLogger.Error().Err(err).Msg("Query statement")
 		return nil, errors.New(err.Error())
@@ -155,7 +153,7 @@ func (w WorkerRepository) Get(balance core.Balance) (*core.Balance, error){
 	defer rows.Close()
 
 	for rows.Next() {
-		err := rows.Scan( 	&result_query.ID, 
+		err := rows.Scan( &result_query.ID, 
 							&result_query.AccountID, 
 							&result_query.PersonID, 
 							&result_query.Currency,
@@ -164,7 +162,7 @@ func (w WorkerRepository) Get(balance core.Balance) (*core.Balance, error){
 							&result_query.UpdateAt,
 							&result_query.TenantID,
 							&result_query.UserLastUpdate,
-						)
+							)
 		if err != nil {
 			childLogger.Error().Err(err).Msg("Scan statement")
 			return nil, errors.New(err.Error())
@@ -175,16 +173,16 @@ func (w WorkerRepository) Get(balance core.Balance) (*core.Balance, error){
 	return nil, erro.ErrNotFound
 }
 
-func (w WorkerRepository) Update(balance core.Balance) (bool, error){
+func (w WorkerRepository) Update(ctx context.Context, balance core.Balance) (bool, error){
 	childLogger.Debug().Msg("Update...")
 	//childLogger.Debug().Interface("balance : ", balance).Msg("balance")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
-	defer cancel()
+	_, root := xray.BeginSubsegment(ctx, "SQL.Update-Balance")
+	defer root.Close(nil)
 
-	client := w.databaseHelper.GetConnection(ctx)
+	client := w.databaseHelper.GetConnection()
 
-	userLastUpdate, _ := w.GetSessionVariable()
+	userLastUpdate, _ := w.GetSessionVariable(ctx)
 
 	stmt, err := client.Prepare(`Update balance
 									set account_id = $1, 
@@ -200,14 +198,15 @@ func (w WorkerRepository) Update(balance core.Balance) (bool, error){
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(	balance.AccountID, 
-						balance.PersonID,
-						balance.Currency,
-						balance.Amount,
-						time.Now(),
-						balance.ID,
-						userLastUpdate,
-					)
+	result, err := stmt.ExecContext(ctx,	
+									balance.AccountID, 
+									balance.PersonID,
+									balance.Currency,
+									balance.Amount,
+									time.Now(),
+									balance.ID,
+									userLastUpdate,
+								)
 	if err != nil {
 		childLogger.Error().Err(err).Msg("Exec statement")
 		return false, errors.New(err.Error())
@@ -219,13 +218,12 @@ func (w WorkerRepository) Update(balance core.Balance) (bool, error){
 	return true , nil
 }
 
-func (w WorkerRepository) Delete(balance core.Balance) (bool, error){
+func (w WorkerRepository) Delete(ctx context.Context, balance core.Balance) (bool, error){
 	childLogger.Debug().Msg("Delete")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
-	defer cancel()
+	//xrayTracer(&ctx, "Repo.Delete-Balance")
 
-	client := w.databaseHelper.GetConnection(ctx)
+	client := w.databaseHelper.GetConnection()
 
 	stmt, err := client.Prepare(`Delete from balance where id = $1 `)
 	if err != nil {
@@ -234,7 +232,7 @@ func (w WorkerRepository) Delete(balance core.Balance) (bool, error){
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(	balance.ID )
+	result, err := stmt.ExecContext(ctx,balance.ID )
 	if err != nil {
 		childLogger.Error().Err(err).Msg("Exec statement")
 		return false, errors.New(err.Error())
@@ -246,20 +244,17 @@ func (w WorkerRepository) Delete(balance core.Balance) (bool, error){
 	return true , nil
 }
 
-func (w WorkerRepository) List(balance core.Balance) (*[]core.Balance, error){
+func (w WorkerRepository) List(ctx context.Context, balance core.Balance) (*[]core.Balance, error){
 	childLogger.Debug().Msg("List")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
-	defer cancel()
+	_, root := xray.BeginSubsegment(ctx, "SQL.List-Balance")
+	defer root.Close(nil)
 
-	client:= w.databaseHelper.GetConnection(ctx)
-
+	client:= w.databaseHelper.GetConnection()
+	
 	result_query := core.Balance{}
 	balance_list := []core.Balance{}
-
-	rows, err := client.Query(`SELECT id, account_id, person_id, currency, amount, create_at, update_at, tenant_id, user_last_update
-								FROM balance 
-								WHERE person_id =$1`, balance.PersonID)
+	rows, err := client.QueryContext(ctx, `SELECT id, account_id, person_id, currency, amount, create_at, update_at, tenant_id, user_last_update FROM balance WHERE person_id =$1`, balance.PersonID)
 	if err != nil {
 		childLogger.Error().Err(err).Msg("SELECT statement")
 		return nil, errors.New(err.Error())
@@ -283,17 +278,18 @@ func (w WorkerRepository) List(balance core.Balance) (*[]core.Balance, error){
         }
 		balance_list = append(balance_list, result_query)
 	}
-
+	
 	return &balance_list , nil
 }
 
-func (w WorkerRepository) Sum(balance core.Balance) (bool, error){
+func (w WorkerRepository) Sum(ctx context.Context, balance core.Balance) (bool, error){
 	childLogger.Debug().Msg("Sum")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
-	defer cancel()
+	_, root := xray.BeginSubsegment(ctx, "SQL.Sum-Balance")
+	defer root.Close(nil)
 
-	client := w.databaseHelper.GetConnection(ctx)
+	client := w.databaseHelper.GetConnection()
+
 	stmt, err := client.Prepare(`Update balance
 									set amount = amount + $1, 
 										update_at = $2
@@ -304,43 +300,11 @@ func (w WorkerRepository) Sum(balance core.Balance) (bool, error){
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(	balance.Amount,
-								time.Now(),
-								balance.ID,
-							)
-	if err != nil {
-		childLogger.Error().Err(err).Msg("Exec statement")
-		return false, errors.New(err.Error())
-	}
-
-	rowsAffected, _ := result.RowsAffected()
-	childLogger.Debug().Int("rowsAffected : ",int(rowsAffected)).Msg("")
-
-	return true , nil
-}
-
-func (w WorkerRepository) Minus(balance core.Balance) (bool, error){
-	childLogger.Debug().Msg("Minus")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
-	defer cancel()
-
-	client := w.databaseHelper.GetConnection(ctx)
-
-	stmt, err := client.Prepare(`Update balance
-									set amount = amount - $1, 
-										update_at = $2
-								where id = $3 `)
-	if err != nil {
-		childLogger.Error().Err(err).Msg("UPDATE statement")
-		return false, errors.New(err.Error())
-	}
-	defer stmt.Close()
-
-	result, err := stmt.Exec(	balance.Amount,
-						time.Now(),
-						balance.ID,
-					)
+	result, err := stmt.ExecContext(ctx,
+									balance.Amount,
+									time.Now(),
+									balance.ID,
+									)
 	if err != nil {
 		childLogger.Error().Err(err).Msg("Exec statement")
 		return false, errors.New(err.Error())

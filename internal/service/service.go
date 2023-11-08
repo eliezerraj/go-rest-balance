@@ -1,11 +1,13 @@
 package service
 
 import (
+	"context"
 	"github.com/rs/zerolog/log"
 
 	"github.com/go-rest-balance/internal/erro"
 	"github.com/go-rest-balance/internal/core"
 	"github.com/go-rest-balance/internal/repository/postgre"
+	"github.com/aws/aws-xray-sdk-go/xray"
 
 )
 
@@ -23,10 +25,10 @@ func NewWorkerService(workerRepository *db_postgre.WorkerRepository) *WorkerServ
 	}
 }
 
-func (s WorkerService) SetSessionVariable(userCredential string) (bool, error){
+func (s WorkerService) SetSessionVariable(ctx context.Context, userCredential string) (bool, error){
 	childLogger.Debug().Msg("SetSessionVariable")
 
-	res, err := s.workerRepository.SetSessionVariable(userCredential)
+	res, err := s.workerRepository.SetSessionVariable(ctx, userCredential)
 	if err != nil {
 		return false, err
 	}
@@ -34,10 +36,13 @@ func (s WorkerService) SetSessionVariable(userCredential string) (bool, error){
 	return res, nil
 }
 
-func (s WorkerService) Add(balance core.Balance) (*core.Balance, error){
+func (s WorkerService) Add(ctx context.Context, balance core.Balance) (*core.Balance, error){
 	childLogger.Debug().Msg("Add")
 
-	res, err := s.workerRepository.Add(balance)
+	_, root := xray.BeginSubsegment(ctx, "Service.Add")
+	defer root.Close(nil)
+
+	res, err := s.workerRepository.Add(ctx, balance)
 	if err != nil {
 		return nil, err
 	}
@@ -45,10 +50,13 @@ func (s WorkerService) Add(balance core.Balance) (*core.Balance, error){
 	return res, nil
 }
 
-func (s WorkerService) Get(balance core.Balance) (*core.Balance, error){
+func (s WorkerService) Get(ctx context.Context,balance core.Balance) (*core.Balance, error){
 	childLogger.Debug().Msg("Get")
 
-	res, err := s.workerRepository.Get(balance)
+	_, root := xray.BeginSubsegment(ctx, "Service.Get")
+	defer root.Close(nil)
+
+	res, err := s.workerRepository.Get(ctx, balance)
 	if err != nil {
 		return nil, err
 	}
@@ -56,16 +64,19 @@ func (s WorkerService) Get(balance core.Balance) (*core.Balance, error){
 	return res, nil
 }
 
-func (s WorkerService) Update(balance core.Balance) (*core.Balance, error){
+func (s WorkerService) Update(ctx context.Context, balance core.Balance) (*core.Balance, error){
 	childLogger.Debug().Msg("Update")
 
-	res_balance, err := s.workerRepository.Get(balance)
+	_, root := xray.BeginSubsegment(ctx, "Service.Update")
+	defer root.Close(nil)
+
+	res_balance, err := s.workerRepository.Get(ctx, balance)
 	if err != nil {
 		return nil, err
 	}
 
 	balance.ID = res_balance.ID
-	isUpdated, err := s.workerRepository.Update(balance)
+	isUpdated, err := s.workerRepository.Update(ctx, balance)
 	if err != nil {
 		return nil, err
 	}
@@ -73,23 +84,26 @@ func (s WorkerService) Update(balance core.Balance) (*core.Balance, error){
 		return nil, erro.ErrUpdate
 	}
 
-	res_balance, err = s.workerRepository.Get(balance)
+	res_balance, err = s.workerRepository.Get(ctx, balance)
 	if err != nil {
 		return nil, err
 	}
 	return res_balance, nil
 }
 
-func (s WorkerService) Delete(balance core.Balance) (bool, error){
+func (s WorkerService) Delete(ctx context.Context,balance core.Balance) (bool, error){
 	childLogger.Debug().Msg("Delete")
 
-	res_balance, err := s.workerRepository.Get(balance)
+	_, root := xray.BeginSubsegment(ctx, "Service.Delete")
+	defer root.Close(nil)
+
+	res_balance, err := s.workerRepository.Get(ctx,balance)
 	if err != nil {
 		return false, err
 	}
 
 	balance.ID = res_balance.ID
-	isDelete, err := s.workerRepository.Delete(balance)
+	isDelete, err := s.workerRepository.Delete(ctx, balance)
 	if err != nil {
 		return false, err
 	}
@@ -99,10 +113,13 @@ func (s WorkerService) Delete(balance core.Balance) (bool, error){
 	return true, nil
 }
 
-func (s WorkerService) List(balance core.Balance) (*[]core.Balance, error){
+func (s WorkerService) List(ctx context.Context, balance core.Balance) (*[]core.Balance, error){
 	childLogger.Debug().Msg("List")
 
-	res, err := s.workerRepository.List(balance)
+	_, root := xray.BeginSubsegment(ctx, "Service.List")
+	defer root.Close(nil)
+
+	res, err := s.workerRepository.List(ctx, balance)
 	if err != nil {
 		return nil, err
 	}
@@ -110,16 +127,19 @@ func (s WorkerService) List(balance core.Balance) (*[]core.Balance, error){
 	return res, nil
 }
 
-func (s WorkerService) Sum(balance core.Balance) (*core.Balance, error){
+func (s WorkerService) Sum(ctx context.Context,balance core.Balance) (*core.Balance, error){
 	childLogger.Debug().Msg("Sum")
 
-	res_balance, err := s.workerRepository.Get(balance)
+	_, root := xray.BeginSubsegment(ctx, "Service.Sum")
+	defer root.Close(nil)
+
+	res_balance, err := s.workerRepository.Get(ctx, balance)
 	if err != nil {
 		return nil, err
 	}
 
 	balance.ID = res_balance.ID
-	isUpdated, err := s.workerRepository.Sum(balance)
+	isUpdated, err := s.workerRepository.Sum(ctx, balance)
 	if err != nil {
 		return nil, err
 	}
@@ -127,31 +147,7 @@ func (s WorkerService) Sum(balance core.Balance) (*core.Balance, error){
 		return nil, erro.ErrUpdate
 	}
 
-	res_balance, err = s.workerRepository.Get(balance)
-	if err != nil {
-		return nil, err
-	}
-	return res_balance, nil
-}
-
-func (s WorkerService) Minus(balance core.Balance) (*core.Balance, error){
-	childLogger.Debug().Msg("Minus")
-
-	res_balance, err := s.workerRepository.Get(balance)
-	if err != nil {
-		return nil, err
-	}
-
-	balance.ID = res_balance.ID
-	isUpdated, err := s.workerRepository.Minus(balance)
-	if err != nil {
-		return nil, err
-	}
-	if (isUpdated == false) {
-		return nil, erro.ErrUpdate
-	}
-
-	res_balance, err = s.workerRepository.Get(balance)
+	res_balance, err = s.workerRepository.Get(ctx, balance)
 	if err != nil {
 		return nil, err
 	}

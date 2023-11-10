@@ -74,4 +74,6 @@ Add in hosts file /etc/hosts the lines below
 
     127.0.0.1   svc01.domain.com
 
+## AWS
 
+Create a public apigw

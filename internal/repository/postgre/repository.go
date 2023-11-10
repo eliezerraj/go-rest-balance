@@ -20,11 +20,6 @@ type WorkerRepository struct {
 	databaseHelper DatabaseHelper
 }
 
-func xrayTracer(ctx *context.Context, tracerName string){
-	_, root := xray.BeginSubsegment(*ctx, tracerName)
-	defer root.Close(nil)
-}
-
 func NewWorkerRepository(databaseHelper DatabaseHelper) WorkerRepository {
 	childLogger.Debug().Msg("NewWorkerRepository")
 	return WorkerRepository{
@@ -221,8 +216,9 @@ func (w WorkerRepository) Update(ctx context.Context, balance core.Balance) (boo
 func (w WorkerRepository) Delete(ctx context.Context, balance core.Balance) (bool, error){
 	childLogger.Debug().Msg("Delete")
 
-	//xrayTracer(&ctx, "Repo.Delete-Balance")
-
+	_, root := xray.BeginSubsegment(ctx, "SQL.Update-Balance")
+	defer root.Close(nil)
+	
 	client := w.databaseHelper.GetConnection()
 
 	stmt, err := client.Prepare(`Delete from balance where id = $1 `)

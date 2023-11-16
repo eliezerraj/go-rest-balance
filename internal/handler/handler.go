@@ -108,9 +108,16 @@ func (h *HttpWorkerAdapter) Sum(rw http.ResponseWriter, req *http.Request) {
 	
 	res, err := h.workerService.Sum(req.Context(), balance)
 	if err != nil {
-		rw.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(rw).Encode(err.Error())
-		return
+		switch err {
+		case erro.ErrNotFound:
+			rw.WriteHeader(404)
+			json.NewEncoder(rw).Encode(err.Error())
+			return
+		default:
+			rw.WriteHeader(500)
+			json.NewEncoder(rw).Encode(err.Error())
+			return
+		}
 	}
 
 	json.NewEncoder(rw).Encode(res)
@@ -130,9 +137,12 @@ func (h *HttpWorkerAdapter) Add( rw http.ResponseWriter, req *http.Request) {
 
 	res, err := h.workerService.Add(req.Context(), balance)
 	if err != nil {
-		rw.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(rw).Encode(err.Error())
-		return
+		switch err {
+		default:
+			rw.WriteHeader(500)
+			json.NewEncoder(rw).Encode(err.Error())
+			return
+		}
 	}
 
 	json.NewEncoder(rw).Encode(res)
@@ -150,9 +160,16 @@ func (h *HttpWorkerAdapter) Get(rw http.ResponseWriter, req *http.Request) {
 	
 	res, err := h.workerService.Get(req.Context(), balance)
 	if err != nil {
-		rw.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(rw).Encode(err.Error())
-		return
+		switch err {
+		case erro.ErrNotFound:
+			rw.WriteHeader(404)
+			json.NewEncoder(rw).Encode(err.Error())
+			return
+		default:
+			rw.WriteHeader(500)
+			json.NewEncoder(rw).Encode(err.Error())
+			return
+		}
 	}
 
 	json.NewEncoder(rw).Encode(res)
@@ -176,13 +193,16 @@ func (h *HttpWorkerAdapter) Update(rw http.ResponseWriter, req *http.Request) {
 
 	res, err := h.workerService.Update(req.Context(), balance)
 	if err != nil {
-		if err == erro.ErrNotFound {
+		switch err {
+		case erro.ErrNotFound:
 			rw.WriteHeader(404)
-		} else {
-			rw.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(rw).Encode(err.Error())
+			return
+		default:
+			rw.WriteHeader(500)
+			json.NewEncoder(rw).Encode(err.Error())
+			return
 		}
-		json.NewEncoder(rw).Encode(err.Error())
-		return
 	}
 
 	json.NewEncoder(rw).Encode(res)
@@ -199,13 +219,16 @@ func (h *HttpWorkerAdapter) Delete(rw http.ResponseWriter, req *http.Request) {
 	
 	res, err := h.workerService.Delete(req.Context(), balance)
 	if err != nil {
-		if err == erro.ErrNotFound {
+		switch err {
+		case erro.ErrNotFound:
 			rw.WriteHeader(404)
-		} else {
-			rw.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(rw).Encode(err.Error())
+			return
+		default:
+			rw.WriteHeader(500)
+			json.NewEncoder(rw).Encode(err.Error())
+			return
 		}
-		json.NewEncoder(rw).Encode(err.Error())
-		return
 	}
 
 	json.NewEncoder(rw).Encode(res)
@@ -223,9 +246,12 @@ func (h *HttpWorkerAdapter) List(rw http.ResponseWriter, req *http.Request) {
 	
 	res, err := h.workerService.List(req.Context(), balance)
 	if err != nil {
-		rw.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(rw).Encode(err.Error())
-		return
+		switch err {
+		default:
+			rw.WriteHeader(500)
+			json.NewEncoder(rw).Encode(err.Error())
+			return
+		}
 	}
 
 	json.NewEncoder(rw).Encode(res)

@@ -11,6 +11,9 @@ import(
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+    "github.com/aws/aws-sdk-go-v2/config"
+
 	"github.com/go-rest-balance/internal/handler"
 	"github.com/go-rest-balance/internal/core"
 	"github.com/go-rest-balance/internal/service"
@@ -19,9 +22,10 @@ import(
 )
 
 var(
-	logLevel 	= zerolog.DebugLevel
-	tableName 	= "BALANCE"
-	version 	= "GO CRUD BALANCE 1.0"
+	logLevel 	= 	zerolog.DebugLevel
+	tableName 	= 	"BALANCE"
+	version 	= 	"GO CRUD BALANCE 1.0"
+	noAZ		=	true // set only if you get to split the xray trace per AZ
 
 	infoPod					core.InfoPod
 	envDB	 				core.DatabaseRDS
@@ -53,6 +57,7 @@ func init(){
 	server.CtxTimeout = 60
 	//Just for easy test
 
+	// Get IP
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		log.Error().Err(err).Msg("Error to get the POD IP address !!!")
@@ -81,6 +86,24 @@ func init(){
 	envDB.Password = string(file_pass)
 
 	getEnv()
+
+	// Get AZ only if localtest is true
+	if (noAZ != true) {
+		cfg, err := config.LoadDefaultConfig(context.TODO())
+		if err != nil {
+			log.Error().Err(err).Msg("ERRO FATAL get Context !!!")
+			os.Exit(3)
+		}
+		client := imds.NewFromConfig(cfg)
+		response, err := client.GetInstanceIdentityDocument(context.TODO(), &imds.GetInstanceIdentityDocumentInput{})
+		if err != nil {
+			log.Error().Err(err).Msg("Unable to retrieve the region from the EC2 instance !!!")
+			os.Exit(3)
+		}
+		infoPod.AvailabilityZone = response.AvailabilityZone	
+	} else {
+			infoPod.AvailabilityZone = "LOCALHOSTO_NO_AZ"
+	}
 }
 
 func getEnv() {
@@ -109,6 +132,10 @@ func getEnv() {
 	}
 	if os.Getenv("DB_SCHEMA") !=  "" {	
 		envDB.Schema = os.Getenv("DB_SCHEMA")
+	}
+
+	if os.Getenv("NO_AZ") ==  "true" {	
+		noAZ = false
 	}
 }
 

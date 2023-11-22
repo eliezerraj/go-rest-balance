@@ -134,9 +134,12 @@ func getEnv() {
 		envDB.Schema = os.Getenv("DB_SCHEMA")
 	}
 
-	if os.Getenv("NO_AZ") ==  "true" {	
+	if os.Getenv("NO_AZ") == "false" {	
 		noAZ = false
+	} else {
+		noAZ = true
 	}
+
 }
 
 func main() {

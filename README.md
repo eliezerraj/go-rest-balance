@@ -74,6 +74,12 @@ Add in hosts file /etc/hosts the lines below
 
     127.0.0.1   svc01.domain.com
 
+or
+
+Add -host header in PostMan
+
+
 ## AWS
 
 Create a public apigw
+

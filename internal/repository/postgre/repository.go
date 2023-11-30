@@ -291,7 +291,7 @@ func (w WorkerRepository) Sum(ctx context.Context, balance core.Balance) (bool, 
 										update_at = $2
 								where id = $3 `)
 	if err != nil {
-		childLogger.Error().Err(err).Msg("UPDATE statement")
+		childLogger.Error().Err(err).Msg("UPDATE statement")	
 		return false, errors.New(err.Error())
 	}
 	defer stmt.Close()

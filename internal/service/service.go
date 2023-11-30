@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"time"
 	"github.com/rs/zerolog/log"
 
 	"github.com/go-rest-balance/internal/erro"
 	"github.com/go-rest-balance/internal/core"
 	"github.com/go-rest-balance/internal/repository/postgre"
+	"github.com/go-rest-balance/internal/adapter/event"
 	"github.com/aws/aws-xray-sdk-go/xray"
 
 )
@@ -15,13 +17,16 @@ var childLogger = log.With().Str("service", "service").Logger()
 
 type WorkerService struct {
 	workerRepository 		*db_postgre.WorkerRepository
+	producerWorker			*event.ProducerWorker
 }
 
-func NewWorkerService(workerRepository *db_postgre.WorkerRepository) *WorkerService{
+func NewWorkerService(	workerRepository 	*db_postgre.WorkerRepository,
+						producerWorker		*event.ProducerWorker) *WorkerService{
 	childLogger.Debug().Msg("NewWorkerService")
 
 	return &WorkerService{
 		workerRepository:	workerRepository,
+		producerWorker: 	producerWorker,
 	}
 }
 
@@ -151,5 +156,18 @@ func (s WorkerService) Sum(ctx context.Context,balance core.Balance) (*core.Bala
 	if err != nil {
 		return nil, err
 	}
+
+	event := core.Event{
+		ID: 1,
+		EventDate: time.Now(),
+		EventType: "topic.x",
+		EventData:	res_balance,	
+	}
+
+	err = s.producerWorker.Producer(ctx, event)
+	if err != nil {
+		return nil, err
+	}
+
 	return res_balance, nil
 }

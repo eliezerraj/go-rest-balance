@@ -14,6 +14,7 @@ import(
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
     "github.com/aws/aws-sdk-go-v2/config"
 
+	"github.com/go-rest-balance/internal/adapter/event"
 	"github.com/go-rest-balance/internal/handler"
 	"github.com/go-rest-balance/internal/core"
 	"github.com/go-rest-balance/internal/service"
@@ -29,16 +30,19 @@ var(
 
 	infoPod					core.InfoPod
 	envDB	 				core.DatabaseRDS
+	envKafka				core.KafkaConfig
 	httpAppServerConfig 	core.HttpAppServer
 	server					core.Server
 	dataBaseHelper 			db_postgre.DatabaseHelper
 	repoDB					db_postgre.WorkerRepository
 )
 
-func init(){
-	log.Debug().Msg("init")
+func loadLocalEnv(){
+	log.Debug().Msg("loadLocalEnv")
 	zerolog.SetGlobalLevel(logLevel)
 
+	// LOCAL TEST
+	// ------------------------------------------------------------
 	// Just for easy test
 	envDB.Host = "127.0.0.1" //"host.docker.internal"
 	envDB.Port = "5432"
@@ -55,8 +59,45 @@ func init(){
 	server.WriteTimeout = 60
 	server.IdleTimeout = 60
 	server.CtxTimeout = 60
-	//Just for easy test
 
+	envKafka.KafkaConfigurations.Username = "admin"
+	envKafka.KafkaConfigurations.Password = "admin"
+	envKafka.KafkaConfigurations.Protocol = "PLAINTEXT"
+	envKafka.KafkaConfigurations.Mechanisms = "PLAINTEXT"
+
+	envKafka.KafkaConfigurations.Clientid = "GO-REST-BALANCE"
+	envKafka.KafkaConfigurations.Brokers1 = "b-1.mskarchtest02.9vkh4b.c3.kafka.us-east-2.amazonaws.com:9092"
+	envKafka.KafkaConfigurations.Brokers2 = "b-2.mskarchtest02.9vkh4b.c3.kafka.us-east-2.amazonaws.com:9092"
+
+	envKafka.KafkaConfigurations.Partition = 1
+	envKafka.KafkaConfigurations.ReplicationFactor = 1
+	// ------------------------------------------------------------
+
+}
+
+func init(){
+	log.Debug().Msg("init")
+	zerolog.SetGlobalLevel(logLevel)
+	
+	loadLocalEnv()
+
+	// Get Database Secrets
+	file_user, err := ioutil.ReadFile("/var/pod/secret/username")
+	if err != nil {
+		log.Error().Err(err).Msg("ERRO FATAL recuperacao secret-user")
+		os.Exit(3)
+	}
+	file_pass, err := ioutil.ReadFile("/var/pod/secret/password")
+	if err != nil {
+		log.Error().Err(err).Msg("ERRO FATAL recuperacao secret-pass")
+		os.Exit(3)
+	}
+	envDB.User = string(file_user)
+	envDB.Password = string(file_pass)
+	
+	getEnv()
+
+	// Load info pod
 	// Get IP
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -71,21 +112,6 @@ func init(){
 		}
 	}
 	infoPod.OSPID = strconv.Itoa(os.Getpid())
-
-	file_user, err := ioutil.ReadFile("/var/pod/secret/username")
-    if err != nil {
-        log.Error().Err(err).Msg("ERRO FATAL recuperacao secret-user")
-		os.Exit(3)
-    }
-	file_pass, err := ioutil.ReadFile("/var/pod/secret/password")
-    if err != nil {
-        log.Error().Err(err).Msg("ERRO FATAL recuperacao secret-pass")
-		os.Exit(3)
-    }
-	envDB.User = string(file_user)
-	envDB.Password = string(file_pass)
-
-	getEnv()
 
 	// Get AZ only if localtest is true
 	if (noAZ != true) {
@@ -102,8 +128,11 @@ func init(){
 		}
 		infoPod.AvailabilityZone = response.AvailabilityZone	
 	} else {
-			infoPod.AvailabilityZone = "LOCALHOST_NO_AZ"
+		infoPod.AvailabilityZone = "LOCALHOST_NO_AZ"
 	}
+	// Load info pod
+	infoPod.Database = &envDB
+	infoPod.Kafka	 = &envKafka
 }
 
 func getEnv() {
@@ -134,12 +163,45 @@ func getEnv() {
 		envDB.Schema = os.Getenv("DB_SCHEMA")
 	}
 
+	if os.Getenv("KAFKA_USER") !=  "" {
+		envKafka.KafkaConfigurations.Username = os.Getenv("KAFKA_USER")
+	}
+	if os.Getenv("KAFKA_PASSWORD") !=  "" {
+		envKafka.KafkaConfigurations.Password = os.Getenv("KAFKA_PASSWORD")
+	}
+	if os.Getenv("KAFKA_PROTOCOL") !=  "" {
+		envKafka.KafkaConfigurations.Protocol = os.Getenv("KAFKA_PROTOCOL")
+	}
+	if os.Getenv("KAFKA_MECHANISM") !=  "" {
+		envKafka.KafkaConfigurations.Mechanisms = os.Getenv("KAFKA_MECHANISM")
+	}
+	if os.Getenv("KAFKA_CLIENT_ID") !=  "" {
+		envKafka.KafkaConfigurations.Clientid = os.Getenv("KAFKA_CLIENT_ID")
+	}
+	if os.Getenv("KAFKA_BROKER_1") !=  "" {
+		envKafka.KafkaConfigurations.Brokers1 = os.Getenv("KAFKA_BROKER_1")
+	}
+	if os.Getenv("KAFKA_BROKER_2") !=  "" {
+		envKafka.KafkaConfigurations.Brokers2 = os.Getenv("KAFKA_BROKER_2")
+	}
+	if os.Getenv("KAFKA_BROKER_3") !=  "" {
+		envKafka.KafkaConfigurations.Brokers3 = os.Getenv("KAFKA_BROKER_3")
+	}
+
+	if os.Getenv("KAFKA_PARTITION") !=  "" {
+		intVar, _ := strconv.Atoi(os.Getenv("KAFKA_PARTITION"))
+		envKafka.KafkaConfigurations.Partition = intVar
+	}
+	if os.Getenv("KAFKA_REPLICATION") !=  "" {
+		intVar, _ := strconv.Atoi(os.Getenv("KAFKA_REPLICATION"))
+		envKafka.KafkaConfigurations.ReplicationFactor = intVar
+	}
+
 	if os.Getenv("NO_AZ") == "false" {	
 		noAZ = false
 	} else {
 		noAZ = true
 	}
-
 }
 
 func main() {
@@ -152,6 +214,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration( server.ReadTimeout ) * time.Second)
 	defer cancel()
 
+	// Open Database
 	count := 1
 	var err error
 	for {
@@ -170,9 +233,16 @@ func main() {
 		break
 	}
 	
+	// Setup workload
 	httpAppServerConfig.Server = server
 	repoDB = db_postgre.NewWorkerRepository(dataBaseHelper)
-	workerService := service.NewWorkerService(&repoDB)
+
+	producerWorker, err := event.NewProducerWorker(&envKafka)
+	if err != nil {
+		log.Error().Err(err).Msg("Erro na abertura do Kafka")
+	}
+
+	workerService := service.NewWorkerService(&repoDB,producerWorker)
 	httpWorkerAdapter := handler.NewHttpWorkerAdapter(workerService)
 
 	httpAppServerConfig.InfoPod = &infoPod

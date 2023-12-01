@@ -95,7 +95,9 @@ func (w WorkerRepository) Add(ctx context.Context, balance core.Balance) (*core.
 	childLogger.Debug().Msg("Add")
 
 	_, root := xray.BeginSubsegment(ctx, "SQL.Add-Balance")
-	defer root.Close(nil)
+	defer func() {
+		root.Close(nil)
+	}()
 
 	client := w.databaseHelper.GetConnection()
 
@@ -113,8 +115,7 @@ func (w WorkerRepository) Add(ctx context.Context, balance core.Balance) (*core.
 		childLogger.Error().Err(err).Msg("INSERT statement")
 		return nil, errors.New(err.Error())
 	}
-	defer stmt.Close()
-	
+
 	_, err = stmt.ExecContext(	ctx,	
 								balance.AccountID, 
 								balance.PersonID,
@@ -128,6 +129,7 @@ func (w WorkerRepository) Add(ctx context.Context, balance core.Balance) (*core.
 		return nil, errors.New(err.Error())
 	}
 
+	defer stmt.Close()
 	return &balance , nil
 }
 
@@ -135,7 +137,9 @@ func (w WorkerRepository) Get(ctx context.Context, balance core.Balance) (*core.
 	childLogger.Debug().Msg("Get")
 
 	_, root := xray.BeginSubsegment(ctx, "SQL.Get-Balance")
-	defer root.Close(nil)
+	defer func() {
+		root.Close(nil)
+	}()
 
 	client := w.databaseHelper.GetConnection()
 
@@ -145,7 +149,6 @@ func (w WorkerRepository) Get(ctx context.Context, balance core.Balance) (*core.
 		childLogger.Error().Err(err).Msg("Query statement")
 		return nil, errors.New(err.Error())
 	}
-	defer rows.Close()
 
 	for rows.Next() {
 		err := rows.Scan( &result_query.ID, 
@@ -162,6 +165,8 @@ func (w WorkerRepository) Get(ctx context.Context, balance core.Balance) (*core.
 			childLogger.Error().Err(err).Msg("Scan statement")
 			return nil, errors.New(err.Error())
         }
+		defer rows.Close()
+
 		return &result_query, nil
 	}
 
@@ -173,7 +178,9 @@ func (w WorkerRepository) Update(ctx context.Context, balance core.Balance) (boo
 	//childLogger.Debug().Interface("balance : ", balance).Msg("balance")
 
 	_, root := xray.BeginSubsegment(ctx, "SQL.Update-Balance")
-	defer root.Close(nil)
+	defer func() {
+		root.Close(nil)
+	}()
 
 	client := w.databaseHelper.GetConnection()
 
@@ -191,7 +198,6 @@ func (w WorkerRepository) Update(ctx context.Context, balance core.Balance) (boo
 		childLogger.Error().Err(err).Msg("UPDATE statement")
 		return false, errors.New(err.Error())
 	}
-	defer stmt.Close()
 
 	result, err := stmt.ExecContext(ctx,	
 									balance.AccountID, 
@@ -210,6 +216,7 @@ func (w WorkerRepository) Update(ctx context.Context, balance core.Balance) (boo
 	rowsAffected, _ := result.RowsAffected()
 	childLogger.Debug().Int("rowsAffected : ",int(rowsAffected)).Msg("")
 
+	defer stmt.Close()
 	return true , nil
 }
 
@@ -217,7 +224,9 @@ func (w WorkerRepository) Delete(ctx context.Context, balance core.Balance) (boo
 	childLogger.Debug().Msg("Delete")
 
 	_, root := xray.BeginSubsegment(ctx, "SQL.Update-Balance")
-	defer root.Close(nil)
+	defer func() {
+		root.Close(nil)
+	}()
 	
 	client := w.databaseHelper.GetConnection()
 
@@ -226,7 +235,6 @@ func (w WorkerRepository) Delete(ctx context.Context, balance core.Balance) (boo
 		childLogger.Error().Err(err).Msg("DELETE statement")
 		return false, errors.New(err.Error())
 	}
-	defer stmt.Close()
 
 	result, err := stmt.ExecContext(ctx,balance.ID )
 	if err != nil {
@@ -236,7 +244,8 @@ func (w WorkerRepository) Delete(ctx context.Context, balance core.Balance) (boo
 
 	rowsAffected, _ := result.RowsAffected()
 	childLogger.Debug().Int("rowsAffected : ",int(rowsAffected)).Msg("")
-
+	
+	defer stmt.Close()
 	return true , nil
 }
 
@@ -244,7 +253,9 @@ func (w WorkerRepository) List(ctx context.Context, balance core.Balance) (*[]co
 	childLogger.Debug().Msg("List")
 
 	_, root := xray.BeginSubsegment(ctx, "SQL.List-Balance")
-	defer root.Close(nil)
+	defer func() {
+		root.Close(nil)
+	}()
 
 	client:= w.databaseHelper.GetConnection()
 	
@@ -255,7 +266,6 @@ func (w WorkerRepository) List(ctx context.Context, balance core.Balance) (*[]co
 		childLogger.Error().Err(err).Msg("SELECT statement")
 		return nil, errors.New(err.Error())
 	}
-	defer rows.Close()
 
 	for rows.Next() {
 		err := rows.Scan( 	&result_query.ID, 
@@ -274,7 +284,8 @@ func (w WorkerRepository) List(ctx context.Context, balance core.Balance) (*[]co
         }
 		balance_list = append(balance_list, result_query)
 	}
-	
+
+	defer rows.Close()
 	return &balance_list , nil
 }
 
@@ -282,7 +293,9 @@ func (w WorkerRepository) Sum(ctx context.Context, balance core.Balance) (bool, 
 	childLogger.Debug().Msg("Sum")
 
 	_, root := xray.BeginSubsegment(ctx, "SQL.Sum-Balance")
-	defer root.Close(nil)
+	defer func() {
+		root.Close(nil)
+	}()
 
 	client := w.databaseHelper.GetConnection()
 
@@ -294,8 +307,7 @@ func (w WorkerRepository) Sum(ctx context.Context, balance core.Balance) (bool, 
 		childLogger.Error().Err(err).Msg("UPDATE statement")	
 		return false, errors.New(err.Error())
 	}
-	defer stmt.Close()
-
+	
 	result, err := stmt.ExecContext(ctx,
 									balance.Amount,
 									time.Now(),
@@ -305,9 +317,10 @@ func (w WorkerRepository) Sum(ctx context.Context, balance core.Balance) (bool, 
 		childLogger.Error().Err(err).Msg("Exec statement")
 		return false, errors.New(err.Error())
 	}
-
+	
 	rowsAffected, _ := result.RowsAffected()
 	childLogger.Debug().Int("rowsAffected : ",int(rowsAffected)).Msg("")
 
+	defer stmt.Close()
 	return true , nil
 }

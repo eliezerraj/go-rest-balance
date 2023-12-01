@@ -45,7 +45,9 @@ func (s WorkerService) Add(ctx context.Context, balance core.Balance) (*core.Bal
 	childLogger.Debug().Msg("Add")
 
 	_, root := xray.BeginSubsegment(ctx, "Service.Add")
-	defer root.Close(nil)
+	defer func() {
+		root.Close(nil)
+	}()
 
 	res, err := s.workerRepository.Add(ctx, balance)
 	if err != nil {
@@ -59,7 +61,9 @@ func (s WorkerService) Get(ctx context.Context,balance core.Balance) (*core.Bala
 	childLogger.Debug().Msg("Get")
 
 	_, root := xray.BeginSubsegment(ctx, "Service.Get")
-	defer root.Close(nil)
+	defer func() {
+		root.Close(nil)
+	}()
 
 	res, err := s.workerRepository.Get(ctx, balance)
 	if err != nil {
@@ -73,7 +77,9 @@ func (s WorkerService) Update(ctx context.Context, balance core.Balance) (*core.
 	childLogger.Debug().Msg("Update")
 
 	_, root := xray.BeginSubsegment(ctx, "Service.Update")
-	defer root.Close(nil)
+	defer func() {
+		root.Close(nil)
+	}()
 
 	res_balance, err := s.workerRepository.Get(ctx, balance)
 	if err != nil {
@@ -100,7 +106,9 @@ func (s WorkerService) Delete(ctx context.Context,balance core.Balance) (bool, e
 	childLogger.Debug().Msg("Delete")
 
 	_, root := xray.BeginSubsegment(ctx, "Service.Delete")
-	defer root.Close(nil)
+	defer func() {
+		root.Close(nil)
+	}()
 
 	res_balance, err := s.workerRepository.Get(ctx,balance)
 	if err != nil {
@@ -136,7 +144,9 @@ func (s WorkerService) Sum(ctx context.Context,balance core.Balance) (*core.Bala
 	childLogger.Debug().Msg("Sum")
 
 	_, root := xray.BeginSubsegment(ctx, "Service.Sum")
-	defer root.Close(nil)
+	defer func() {
+		root.Close(nil)
+	}()
 
 	res_balance, err := s.workerRepository.Get(ctx, balance)
 	if err != nil {
@@ -157,11 +167,13 @@ func (s WorkerService) Sum(ctx context.Context,balance core.Balance) (*core.Bala
 		return nil, err
 	}
 
+	eventData := core.EventData{res_balance}
+
 	event := core.Event{
 		ID: 1,
 		EventDate: time.Now(),
 		EventType: "topic.x",
-		EventData:	res_balance,	
+		EventData:	&eventData,	
 	}
 
 	err = s.producerWorker.Producer(ctx, event)

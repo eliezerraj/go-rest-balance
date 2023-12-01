@@ -24,7 +24,6 @@ import(
 
 var(
 	logLevel 	= 	zerolog.DebugLevel
-	tableName 	= 	"BALANCE"
 	version 	= 	"GO CRUD BALANCE 1.0"
 	noAZ		=	true // set only if you get to split the xray trace per AZ
 

@@ -31,5 +31,9 @@ type Event struct {
 	Key			string      `json:"key"`
     EventDate   time.Time   `json:"event_date"`
     EventType   string      `json:"event_type"`
-    EventData   *Balance
+    EventData   *EventData   `json:"event_data"`
+}
+
+type EventData struct {
+    Balance   *Balance    `json:"balance"`
 }

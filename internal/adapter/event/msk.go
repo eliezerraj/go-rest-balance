@@ -66,7 +66,9 @@ func (p *ProducerWorker) Producer(ctx context.Context, event core.Event) error{
 	childLogger.Debug().Msg("Producer")
 
 	_, root := xray.BeginSubsegment(ctx, "Event.Producer")
-	defer root.Close(nil)
+	defer func() {
+		root.Close(nil)
+	}()
 
 	rand.Seed(time.Now().UnixNano())
 	min := 1
@@ -78,12 +80,12 @@ func (p *ProducerWorker) Producer(ctx context.Context, event core.Event) error{
 		childLogger.Error().Err(err).Msg("Erro no Marshall")
 		return err
 	}
-	key	:= event.EventData.AccountID
+	key	:= event.EventData.Balance.AccountID
 
 	childLogger.Debug().Msg("++++++++++++++++++++++++++++++++")
-	log.Debug().Interface("Topic ==>",event.EventType).Msg("")
-	log.Debug().Interface("Key   ==>",key).Msg("")
-	log.Debug().Interface("Event ==>",event.EventData).Msg("")
+	childLogger.Debug().Interface("Topic ==>",event.EventType).Msg("")
+	childLogger.Debug().Interface("Key   ==>",key).Msg("")
+	childLogger.Debug().Interface("Event ==>",event.EventData).Msg("")
 	//log.Debug().Interface("PartHash :",getPartitionHash(key, &p.configurations.KafkaConfigurations.Partition))).Msg(""))
 	//log.Debug().Interface("Partition",getPartition(salt, &p.configurations.KafkaConfigurations.Partition))).Msg(""))
 	childLogger.Debug().Msg("++++++++++++++++++++++++++++++++")
